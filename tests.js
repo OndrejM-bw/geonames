@@ -1,3 +1,5 @@
+enhanceLanguage();
+
 QUnit.test( "B1: search page is displayed", function( assert ) {
     openInitialPage(assert, function (done) {
         assert.ok( appFrame().hasSearchButton(), "Has search button" );
@@ -15,9 +17,21 @@ QUnit.test( "B3: search by location retrieves coordinates", function( assert ) {
            return appFrame().getWindow().app.searchResults && appFrame().getWindow().app.searchResults.length > 0;
         }
         waitForCondition(searchFinished, function() {
-            assert.ok(searchFinished());
+            assert.ok(searchFinished(), "Search finished ok with some results");
             done();
         });
+    });
+});
+
+QUnit.test( "B3: geonames retrieves coordinates for location", function( assert ) {
+    var location = "Los Angeles";
+    var geonames = newGeonames();
+    var done = assert.async();
+    geonames.getLocations(location, function(locations) {
+        assert.ok(locations.totalResultsCount > 0, "Total results is bigger that 0");
+        assert.ok(locations.geonames.length > 0, "Number of records found bigger than 0");
+        assert.ok(locations.geonames[0].name.startsWith("Los"), "Record names start with Los");
+        done();
     });
 });
 
@@ -27,11 +41,45 @@ QUnit.test("B4: from list of locations find earthquakes", function(assert) {
     var done = assert.async();
     geonames.getEarthquakes(locations, function(earthquakes) {
         assert.notEqual(undefined, earthquakes, "Earthquakes should be filled");
+        assert.notEqual(earthquakes.length, 0, "Earthquakes should contain some elements");
+        assert.notEqual(undefined, earthquakes[0].datetime, "Earthquake record should contain datetime");
+        assert.notEqual(undefined, earthquakes[0].lng, "Earthquake record should contain longitude");
+        assert.notEqual(undefined, earthquakes[0].lat, "Earthquake record should contain latitude");
+        assert.notEqual(undefined, earthquakes[0].magnitude, "Earthquake record should contain magnitude");
+        done();
+    });
+});
+
+QUnit.test("B4: from list of locations find earthquakes - asynchronous way", function(assert) {
+    var locations = getSampleLocationQueryResult();
+    var geonames = newGeonames();
+    var done = assert.async();
+    var earthquakes = [];
+    var runningQueries = 0;
+
+    for (var i = 0; i < locations.length; i++) {
+        runningQueries++;
+        geonames.getEarthquakes(locations[i], function(earthquakesPart) {
+            earthquakes = earthquakes.concat(earthquakesPart);
+            runningQueries--;
+        });
+    }
+    waitForCondition(function() {return runningQueries <= 0;}, function() {
+        assert.equal(0, runningQueries, "No running queries expected");
+        assert.notEqual(undefined, earthquakes, "Earthquakes should be filled");
         assert.notEqual(0, earthquakes.length, "Earthquakes should contain some elements");
         assert.notEqual(undefined, earthquakes[0].datetime, "Earthquake record should contain datetime");
         assert.notEqual(undefined, earthquakes[0].lng, "Earthquake record should contain longitude");
         assert.notEqual(undefined, earthquakes[0].lat, "Earthquake record should contain latitude");
         assert.notEqual(undefined, earthquakes[0].magnitude, "Earthquake record should contain magnitude");
+        done();
+    }, 30);
+
+});
+
+QUnit.test( "B5: display markers for earthquakes", function( assert ) {
+    openInitialPage(assert, function (done) {
+        assert.ok(false, "To do...");
         done();
     });
 });
@@ -41,8 +89,11 @@ QUnit.test("B4: from list of locations find earthquakes", function(assert) {
 ===============================
 */
 
-function waitForCondition(conditionEvaluator, callback) {
+function waitForCondition(conditionEvaluator, callback, timeoutInSeconds) {
     var retryCount = 100;
+    if (timeoutInSeconds !== undefined) {
+        retryCount = timeoutInSeconds * 10;
+    }
     var waitIfNotMet = function() {
         setTimeout(function() {
             if (conditionEvaluator()) {
@@ -99,6 +150,15 @@ function appFrame() {
     };
 }
 
+function enhanceLanguage() {
+    if (typeof String.prototype.startsWith != 'function') {
+      // see below for better implementation!
+      String.prototype.startsWith = function (str){
+        return this.indexOf(str) == 0;
+      };
+    }
+}
+
 function getSampleLocationQueryResult() {
     return  [{"timezone":{"gmtOffset":-8,"timeZoneId":"America/Los_Angeles","dstOffset":-7},
               "bbox":{"east":-118.155289,"south":33.703652,"north":34.337306,"west":-118.668176},
@@ -128,7 +188,7 @@ function getSampleLocationQueryResult() {
               "adminName2":"","name":"Los Ángeles","fclName":"city, village,...","countryName":"Argentina","fcodeName":"populated place",
               "adminName1":"Catamarca"},
              {"timezone":{"gmtOffset":-3,"timeZoneId":"America/Santiago","dstOffset":-4},
-              "bbox":{"east":-72.04075959667718,"south":-37.66292455727078,"north":-37.17850689958166,"west":-72.68447087071509},
+/*              "bbox":{"east":-72.04075959667718,"south":-37.66292455727078,"north":-37.17850689958166,"west":-72.68447087071509},   - intentionally removed, sometimes may happen that it is missing */ 
               "asciiName":"Los Angeles","countryId":"3895114","fcl":"A","score":54.92584991455078,"adminId2":"3898381","adminId3":"8261144","countryCode":"CL",
               "adminId1":"3898380","lat":"-37.40792","fcode":"ADM3","continentCode":"SA","adminCode2":"83","adminCode3":"08301","adminCode1":"06","lng":"-72.32774",
               "geonameId":8261144,"toponymName":"Los Angeles","population":0,"adminName5":"","adminName4":"","adminName3":"Los Angeles","adminName2":"Provincia de Biobío",
