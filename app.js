@@ -126,15 +126,21 @@
             this._addInfoWindowToMarker(marker);
         }
       },
+      _lastInfoWindowOpened: null,
       _addInfoWindowToMarker: function(marker) {
         var infowindow;
+        var self = this;
         google.maps.event.addListener(marker, 'click', function() {
+          if (self._lastInfoWindowOpened) {
+            self._lastInfoWindowOpened.close();
+          }
           if (!infowindow) {
             infowindow = new google.maps.InfoWindow({
                 content: "Info window"
             });
           }
           infowindow.open(map,marker);
+          self._lastInfoWindowOpened = infowindow;
         });
       }
     };
