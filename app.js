@@ -123,7 +123,19 @@
               map: map,
               title: "Happened on " + eq.datetime + " at magnitude " + eq.magnitude
             });
+            this._addInfoWindowToMarker(marker);
         }
+      },
+      _addInfoWindowToMarker: function(marker) {
+        var infowindow;
+        google.maps.event.addListener(marker, 'click', function() {
+          if (!infowindow) {
+            infowindow = new google.maps.InfoWindow({
+                content: "Info window"
+            });
+          }
+          infowindow.open(map,marker);
+        });
       }
     };
   }
