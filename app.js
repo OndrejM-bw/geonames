@@ -72,7 +72,7 @@
           },0);
         } else {
             var loc = location.bbox;
-            $.getJSON("http://api.geonames.org/earthquakesJSON?username=" + this.username 
+            $.getJSON("http://api.geonames.org/earthquakesJSON?maxRows=100&username=" + this.username 
               + "&east=" + loc.east  + "&south=" + loc.south  + "&north=" + loc.north  + "&west=" + loc.west, function(data) {
                 callback(data.earthquakes);
               });
@@ -100,10 +100,12 @@
       },
       search: function(location) {
         var self = this;
+        this.cleanMap();
         this.geonames.getLocations(location, function(data) {
           var locations = data.geonames;
           self.searchResults = locations;  // necessary for test, could be removed
           
+          self.mapCentered = false;
           for (var i = 0; i < locations.length; i++) {
               self.geonames.getEarthquakes(locations[i], function(earthquakes) {
                 self._displayEarthquakesOnMap(earthquakes);
@@ -117,17 +119,22 @@
         for (var i = 0; i < earthquakes.length; i++) {
             var eq = earthquakes[i];
             var eqCoords = { lat: eq.lat, lng: eq.lng};
-            map.setCenter(eqCoords);
+            if ( ! this.mapCentered) {
+              map.setCenter(eqCoords);
+              self.mapCentered = true;
+            }
             var marker = new google.maps.Marker({
               position: eqCoords,
               map: map,
               title: "Happened on " + eq.datetime + " at magnitude " + eq.magnitude
             });
-            this._addInfoWindowToMarker(marker);
+            this._markers.push(marker);
+            this._addInfoWindowToMarker(marker, eq);
         }
       },
       _lastInfoWindowOpened: null,
-      _addInfoWindowToMarker: function(marker) {
+      _markers: [],
+      _addInfoWindowToMarker: function(marker, eqinfo) {
         var infowindow;
         var self = this;
         google.maps.event.addListener(marker, 'click', function() {
@@ -136,12 +143,26 @@
           }
           if (!infowindow) {
             infowindow = new google.maps.InfoWindow({
-                content: "Info window"
+                content: self._eqInfoWindowContent(eqinfo)
             });
           }
           infowindow.open(map,marker);
           self._lastInfoWindowOpened = infowindow;
         });
+      },
+      _eqInfoWindowContent: function(eqinfo) {
+        return "<h2>Earthquake information</h2>"
+             + "<b>Happened:</b>" + eqinfo.datetime + "<br>"
+             + "<b>Magnitude:</b>" + eqinfo.magnitude + "<br>"
+             + "<b>Depth:</b>" + eqinfo.depth + " km<br>";
+      },
+      cleanMap: function() {
+          if (this._lastInfoWindowOpened) {
+            this._lastInfoWindowOpened.close();
+          }
+          while (this._markers.length > 0) {
+            this._markers.pop().setMap(null);
+          }
       }
     };
   }
